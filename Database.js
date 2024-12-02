@@ -71,6 +71,22 @@ export async function getChannelId(channelName) {
     });
 }
 
-export async function sendMessage(message) {
+export async function sendMessage(channel ,message) {
+    const channelId = await getChannelId(channel);
     return await database().ref(`Channels/${channelId}/GroupChat`).push({ message: message, sender: currentUserId });
+}
+
+export async function LoadMessages(channel) {
+    console.log(channel);
+    let channelId = await getChannelId(channel);
+    console.log(channelId);
+    
+    return await database().ref(`Channels/${channelId}/GroupChat`).once('value').then(snapshot => {
+        let messages = [];
+        snapshot.forEach(child => {
+            console.log(child.val());
+            messages.push(child.val());
+        });
+        return messages;
+    });
 }

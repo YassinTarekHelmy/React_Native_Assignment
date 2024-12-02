@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { Text, View, Button, FlatList, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
 import messaging from "@react-native-firebase/messaging";
-import { loadChannels, getChannelName, getSubscribedChannels, currentUserId, subscribeToChannel, unsubscribeFromChannel, getChannelId, sendMessage} from "./Database";
+import { loadChannels, getChannelName, getSubscribedChannels, currentUserId, subscribeToChannel, unsubscribeFromChannel, LoadMessages, getChannelId, sendMessage} from "./Database";
 import { requestUserPermissionAndToken, setupNotificationHandlers } from "./Notifications";
 
 export default function Channels() {
-  const [channelNames, setChannelNames] = useState([]); // State for channel names
-  const [subscribedChannels, setSubscribedChannels] = useState([]); // State for subscribed channels
-  const [isGroupChat, setIsGroupChat] = useState(false); // State to manage group chat view
-  const [messages, setMessages] = useState([]); // State to store messages
+  const [channelNames, setChannelNames] = useState([]); 
+  const [subscribedChannels, setSubscribedChannels] = useState([]); 
+  const [isGroupChat, setIsGroupChat] = useState(false); 
+  const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
+  const [channel, setChannel] = useState("");
 
   useEffect(() => {
     fetchChannels();
@@ -128,6 +129,11 @@ export default function Channels() {
       color: "#fff",
       fontSize: 16,
     },
+    sender: {
+      fontSize: 12,
+      color: "#666",
+      marginTop: 5,
+    }
   });
 
   if (!isGroupChat) {
@@ -144,8 +150,12 @@ export default function Channels() {
                 <>
                   <Button
                     title="Group Chat"
-                    onPress={() => setIsGroupChat(true)} 
-                    color="blue"
+                    onPress={async () => {
+                      setChannel(item);
+                      setMessages(await LoadMessages(item));
+                      setIsGroupChat(true)} 
+                    }
+                      color="blue"
                   />
                   <Button
                     title="Unsubscribe"
@@ -169,15 +179,17 @@ export default function Channels() {
     return (
       <KeyboardAvoidingView
       style={styles.container}
-    >
+      >
+      <Button title="Back" onPress={() => setIsGroupChat(false)} color="black" />
       <Text style={styles.title}>Group Chat</Text>
       <View style={styles.chatContainer}>
         <FlatList
           data={messages}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.sender}
           renderItem={({ item }) => (
             <View style={styles.messageItem}>
-              <Text style={styles.messageText}>{item.text}</Text>
+              <Text style={styles.messageText}>{item.message}</Text>
+              <Text style={styles.sender}> {item.sender} </Text>
             </View>
           )}
         />
@@ -190,7 +202,7 @@ export default function Channels() {
           value={message}
           onChangeText={setMessage}
         />
-        <Button title="Send" onPress={sendMessage} color="blue" />
+        <Button title="Send" onPress={ async () => await sendMessage(channel, message)} color="blue" />
       </View>
     </KeyboardAvoidingView>
     );
