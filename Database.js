@@ -15,7 +15,7 @@ export async function loadChannels() {
 
 export async function subscribeToChannel(channel) {
     // Retrieve the channel ID from the channel name
-    return await database().ref(`Channels/${channel}/Subscribers`).push({ 'userId' : currentUserId });
+    return await database().ref(`Channels/${channel}/Subscribers`).set({ currentUserId : currentUserId });
 
   }
   
@@ -55,4 +55,22 @@ export async function getSubscribedChannels(userId) {
     });
 
     return channels;
+}
+
+export async function getChannelId(channelName) {
+    return await database().ref('Channels').once('value').then(snapshot => {
+        let channelId = null;
+        snapshot.forEach(child => {
+
+            if (child.child('name').val() === channelName) {
+                
+                channelId = child.key;
+            }
+        });
+        return channelId;
+    });
+}
+
+export async function sendMessage(message) {
+    return await database().ref(`Channels/${channelId}/GroupChat`).push({ message: message, sender: currentUserId });
 }
