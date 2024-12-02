@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "173767811471",
+    "firebase_url": "https://cloudcomputing-52c02-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "cloudcomputing-52c02",
+    "storage_bucket": "cloudcomputing-52c02.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:173767811471:android:1fe175e3fd724a979febfa",
+        "android_client_info": {
+          "package_name": "com.anonymous.reactApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBh-We3MwQp_Tc3sTiONjZzqX6uoFhxC6I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
