@@ -1,48 +1,63 @@
 import React, { useEffect, useState } from "react";
-import { Text, View, Button, FlatList, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
+import { Text, View, Button, FlatList, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Alert } from "react-native";
 import messaging from "@react-native-firebase/messaging";
-import { loadChannels, getChannelName, getSubscribedChannels, currentUserId, subscribeToChannel, unsubscribeFromChannel, LoadMessages, getChannelId, sendMessage} from "./Database";
+import { loadChannels, getChannelName, getSubscribedChannels, currentUserId, subscribeToChannel, unsubscribeFromChannel, LoadMessages, getChannelId, sendMessage, listenForNewMessages} from "./Database";
 import { requestUserPermissionAndToken, setupNotificationHandlers } from "./Notifications";
+
 
 export default function Channels() {
   const [channelNames, setChannelNames] = useState([]); 
-  const [subscribedChannels, setSubscribedChannels] = useState([]); 
+  const [subscribedChannelsState, setSubscribedChannelsState] = useState([]); 
   const [isGroupChat, setIsGroupChat] = useState(false); 
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [channel, setChannel] = useState("");
 
   useEffect(() => {
+    listenForNewMessages(channel, setMessages);
     fetchChannels();
     requestUserPermissionAndToken();
 
-    const unsubscribe = setupNotificationHandlers();
+    const unsubscribe2 = setupNotificationHandlers();
 
     async function fetchChannels() {
       const channels = await loadChannels();
       const names = [];
       
       const subscribedChannels = await getSubscribedChannels(currentUserId);
+
       const subscribedChannelNames = [];
       
-      console.log("Subscribed channels:", subscribedChannels);
-      
-      subscribedChannels.forEach(async channel => {
-        subscribedChannelNames.push(await getChannelName(channel));  
-      });
-      
-      for (const element of channels) {
-        const channelName = await getChannelName(element);
+      for (var channel of channels) {
+        const name = await getChannelName(channel);
         
-        names.push(channelName);
+        names.push(name);  
       }
       
+      for (var channel of subscribedChannels) {
+        console.log("Subscribed Channel: ", name);
+        const name = await getChannelName(channel);
+       
+        subscribedChannelNames.push(name);  
+      }
+      
+      
       setChannelNames(names);
-      setSubscribedChannels(subscribedChannelNames);
+
+      console.log("Channels: ", channelNames);
+
+      setSubscribedChannelsState(subscribedChannelNames);
+
+      console.log("Subscribed Channels: ", subscribedChannelsState);
+
+
+
     }
     
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribe2) {
+        unsubscribe2();
+      }
     };
   }, []);
 
@@ -50,7 +65,7 @@ export default function Channels() {
   const subscribeToChannelFront = async (channel) => {
     try {
       await messaging().subscribeToTopic(channel);
-      setSubscribedChannels((prev) => [...prev, channel]);
+      setSubscribedChannelsState((prev) => [...prev, channel]);
       
       let channelId = await getChannelId(channel);
       
@@ -67,7 +82,7 @@ export default function Channels() {
   const unsubscribeFromChannelFront = async (channel) => {
     try {
       await messaging().unsubscribeFromTopic(channel);
-      setSubscribedChannels((prev) => prev.filter((ch) => ch !== channel));
+      setSubscribedChannelsState((prev) => prev.filter((ch) => ch !== channel));
       
       let channelId = await getChannelId(channel);
       await unsubscribeFromChannel(channelId);
@@ -146,13 +161,14 @@ export default function Channels() {
           renderItem={({ item }) => (
             <View style={styles.channelItem}>
               <Text style={styles.channelName}>{item}</Text>
-              {subscribedChannels.includes(item) ? (
+              {subscribedChannelsState.includes(item) ? (
                 <>
                   <Button
                     title="Group Chat"
                     onPress={async () => {
                       setChannel(item);
                       setMessages(await LoadMessages(item));
+                      
                       setIsGroupChat(true)} 
                     }
                       color="blue"
@@ -185,7 +201,7 @@ export default function Channels() {
       <View style={styles.chatContainer}>
         <FlatList
           data={messages}
-          keyExtractor={(item) => item.sender}
+          keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.messageItem}>
               <Text style={styles.messageText}>{item.message}</Text>
@@ -202,7 +218,13 @@ export default function Channels() {
           value={message}
           onChangeText={setMessage}
         />
-        <Button title="Send" onPress={ async () => await sendMessage(channel, message)} color="blue" />
+        <Button title="Send" 
+          onPress={ async () => 
+            {
+              await sendMessage(channel, message);
+              await LoadMessages(channel);
+              // await LoadMessages(channel);  
+            }} color="blue" />
       </View>
     </KeyboardAvoidingView>
     );

@@ -1,79 +1,106 @@
 import database from '@react-native-firebase/database';
+import firestore from '@react-native-firebase/firestore';
 
 export let currentUserId = 1;
 
+
 export async function loadChannels() {
-    return await database().ref('Channels').once('value').then(snapshot => {
-        let channels = [];
-        snapshot.forEach(child => {
-            channels.push(child.key);
-        });
+    
+        // Fetch the 'Channels' document
+        const doc = (await firestore().collection('messagingCollection1').doc('Channels').get());
+        
+        let channels =  doc.data();
+
+        channels = Object.keys(channels);
+
         return channels;
-    }
-    );
+        
 }
+
 
 export async function subscribeToChannel(channel) {
     // Retrieve the channel ID from the channel name
-    return await database().ref(`Channels/${channel}/Subscribers`).set({ currentUserId : currentUserId });
+    const user = "user" + currentUserId;
+    
+    return await firestore().collection('messagingCollection1').doc('Channels').set({
+         [channel] : {
+            Subscribers: {
+                [user]: currentUserId
+            }
+         } }, { merge: true });
 
   }
   
 
   export async function unsubscribeFromChannel(channel) {
-        return await database().ref(`Channels/${channel}/Subscribers`).once('value').then(snapshot => {
+    // Retrieve the channel ID from the channel name
+    const user = "user" + currentUserId;
+    
+    const snapshot = await firestore()
+    .collection('messagingCollection1')
+    .doc('Channels')
+    .update({
+      [`${channel}.Subscribers.${user}`]: firestore.FieldValue.delete()
+    });
 
-            snapshot.forEach(child => {
-                if (child.val() == currentUserId) {
-                    database().ref(`Channels/${channel}/Subscribers/${child.key}`).remove();
-                }
-            });
-        });
+    return snapshot;
   }
   
 
 export async function getChannelName(channel) {
-    return await database().ref(`Channels/${channel}/name`).once('value').then(snapshot => {
-        return snapshot.val();
-    });
+    const snapshot = await firestore().collection('messagingCollection1').doc('Channels').get();
+    
+    return snapshot.data()[channel].name;
 }
 
 export async function getSubscribedChannels(userId) {
-    const snapshot = await database().ref('Channels').once('value');
+    const snapshot = await firestore().collection('messagingCollection1').doc('Channels').get();
+
     let channels = [];
+    
+    const data = snapshot.data();
 
-    snapshot.forEach(async child => {
-        const subscribers = await child.child('Subscribers');
-
-        subscribers.forEach(async subscriber => {
-
-            if (subscriber.val() == userId) {
-
-                channels.push(child.key); 
-            }
-        });
-    });
+    for (const channel in data) {
+        if (data[channel].Subscribers["user" + userId] == userId) {
+            channels.push(channel);
+        }
+    }
 
     return channels;
 }
 
-export async function getChannelId(channelName) {
-    return await database().ref('Channels').once('value').then(snapshot => {
-        let channelId = null;
-        snapshot.forEach(child => {
+export async function listenForNewMessages(channel, setMessages) {
+    const channelId = await getChannelId(channel); 
+    const messagesRef = database().ref(`Channels/${channelId}/GroupChat`);
 
-            if (child.child('name').val() === channelName) {
-                
-                channelId = child.key;
-            }
-        });
-        return channelId;
-    });
+    const handleNewMessage = (snapshot) => {
+        const newMessage = snapshot.val(); 
+        console.log("New message received: ", newMessage);
+
+        setMessages(prevMessages => [...prevMessages, newMessage]); 
+    };
+
+    messagesRef.on('child_added', handleNewMessage);
+
+}
+
+
+export async function getChannelId(channelName) {
+    const snapshot = await firestore().collection('messagingCollection1').doc('Channels').get();
+
+    const data = snapshot.data();
+
+    for (const channel in data) {
+        if (data[channel].name == channelName) {
+            return channel;
+        }
+    }
 }
 
 export async function sendMessage(channel ,message) {
     const channelId = await getChannelId(channel);
-    return await database().ref(`Channels/${channelId}/GroupChat`).push({ message: message, sender: currentUserId });
+    const guid = generateGUID();
+    return await database().ref(`Channels/${channelId}/GroupChat`).push({ id:guid , message: message, sender: currentUserId });
 }
 
 export async function LoadMessages(channel) {
@@ -90,3 +117,14 @@ export async function LoadMessages(channel) {
         return messages;
     });
 }
+
+
+function generateGUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = (c === 'x' ? r : (r & 0x3 | 0x8));
+        return v.toString(16);
+    });
+}
+
+console.log(generateGUID());
