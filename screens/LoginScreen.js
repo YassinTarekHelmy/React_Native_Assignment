@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import { View, Text, Button, TextInput, StyleSheet, ActivityIndicator } from "react-native";
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { signInWithEmailAndPassword, getAuth, GoogleAuthProvider } from "firebase/auth";
+import { signInWithEmailAndPassword, getAuth, GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { app } from "../firebaseConfig";
 
 
@@ -49,8 +49,6 @@ export default function LoginScreen({ navigation }) {
         
         // Try the new style of google-sign in result, from v13+ of that module
         idToken = signInResult.data?.idToken;
-        
-        console.log("ID Token: ", idToken);
 
         if (!idToken) {
         // if you are using older versions of google-signin, try old style result
@@ -62,11 +60,14 @@ export default function LoginScreen({ navigation }) {
     
         // Create a Google credential with the token
         const googleCredential = await GoogleAuthProvider.credential(idToken);
-        
-        console.log("Google Credential: ", googleCredential);
 
-        // Sign-in the user with the credential
-        return await signInWithCredential(googleCredential);
+        console.log("Google Credential: ", googleCredential);
+        
+        const s = await signInWithCredential(googleCredential);
+
+        console.log("Sign in with Google: ", s);
+
+        return s; 
     }
 
   return (
