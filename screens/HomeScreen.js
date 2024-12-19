@@ -1,18 +1,26 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Text, View, Button, FlatList, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Alert } from "react-native";
 import messaging from "@react-native-firebase/messaging";
-import { loadChannels, getChannelName, getSubscribedChannels, currentUserId, subscribeToChannel, unsubscribeFromChannel, LoadMessages, getChannelId, sendMessage, listenForNewMessages} from "../Database";
+import { loadChannels, getChannelName, getSubscribedChannels, setUserID, subscribeToChannel, unsubscribeFromChannel, LoadMessages, getChannelId, sendMessage, listenForNewMessages} from "../Database";
 import { requestUserPermissionAndToken, setupNotificationHandlers } from "../Notifications";
-
+import { AuthContext } from "../AuthContext";
+import { logUserSubscription, listenForFirstTimeLogin } from "../Analytics";
 export default function HomeScreen({navigation}) {
+    const { loggedInUser, setLoggedInUser } = useContext(AuthContext);
     const [channelNames, setChannelNames] = useState([]); 
     const [subscribedChannelsState, setSubscribedChannelsState] = useState([]); 
     const [isGroupChat, setIsGroupChat] = useState(false); 
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState("");
     const [channel, setChannel] = useState("");
+
   
     useEffect(() => {
+
+      listenForFirstTimeLogin();
+
+      console.log("Logged in user: ", loggedInUser);
+      setUserID(loggedInUser.uid);
       listenForNewMessages(channel, setMessages);
       fetchChannels();
       requestUserPermissionAndToken();
@@ -23,7 +31,7 @@ export default function HomeScreen({navigation}) {
         const channels = await loadChannels();
         const names = [];
         
-        const subscribedChannels = await getSubscribedChannels(currentUserId);
+        const subscribedChannels = await getSubscribedChannels(loggedInUser.uid);
   
         const subscribedChannelNames = [];
         
@@ -34,6 +42,7 @@ export default function HomeScreen({navigation}) {
         }
         
         for (var channel of subscribedChannels) {
+          
           console.log("Subscribed Channel: ", name);
           const name = await getChannelName(channel);
          
@@ -65,6 +74,8 @@ export default function HomeScreen({navigation}) {
       try {
         await messaging().subscribeToTopic(channel);
         setSubscribedChannelsState((prev) => [...prev, channel]);
+
+        logUserSubscription(channel, "subscribed");        
         
         let channelId = await getChannelId(channel);
         
@@ -85,6 +96,8 @@ export default function HomeScreen({navigation}) {
         
         let channelId = await getChannelId(channel);
         await unsubscribeFromChannel(channelId);
+
+        logUserSubscription(channel, "unsubscribed");
   
         Alert.alert("Unsubscribed", `You are now unsubscribed from ${channel}`);
       } catch (error) {
@@ -222,7 +235,9 @@ export default function HomeScreen({navigation}) {
               {
                 await sendMessage(channel, message);
                 await LoadMessages(channel);
-                // await LoadMessages(channel);  
+                // await LoadMessages(channel);
+
+                
               }} color="blue" />
         </View>
       </KeyboardAvoidingView>

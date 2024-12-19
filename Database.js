@@ -1,8 +1,13 @@
 import database from '@react-native-firebase/database';
 import firestore from '@react-native-firebase/firestore';
 
-export let currentUserId = 1;
+import { logFirstTimeLogin } from './Analytics';
 
+let currentUserId = "";
+
+export async function setUserID(id) {
+    currentUserId = id;
+}
 
 export async function loadChannels() {
     
@@ -15,6 +20,28 @@ export async function loadChannels() {
 
         return channels;
         
+}
+
+export async function incrementLogingCount() {
+    const snapshot = await firestore().collection('messagingCollection1').doc('Users').get();
+    const data = snapshot.data();
+    const count = data["Count"] + 1;
+
+    
+    if (count === 1) {
+        console.log("hello There");
+        logFirstTimeLogin(currentUserId);
+    }
+
+
+    await firestore().collection('messagingCollection1').doc('Users').set({
+        Count: count
+    }).then(() => {
+        console.log("Login count incremented");
+    }).catch((error) => {
+        console.error("Error incrementing login count: ", error);
+    });
+    
 }
 
 
@@ -54,19 +81,24 @@ export async function getChannelName(channel) {
 }
 
 export async function getSubscribedChannels(userId) {
-    const snapshot = await firestore().collection('messagingCollection1').doc('Channels').get();
+    try {
+        const snapshot = await firestore().collection('messagingCollection1').doc('Channels').get();
 
-    let channels = [];
-    
-    const data = snapshot.data();
+        let channels = [];
+        
+        const data = snapshot.data();
 
-    for (const channel in data) {
-        if (data[channel].Subscribers["user" + userId] == userId) {
-            channels.push(channel);
+        for (const channel in data) {
+            if (data[channel].Subscribers["user" + userId] == userId) {
+                channels.push(channel);
+            }
         }
-    }
 
-    return channels;
+        return channels;
+    } catch (error) {
+        console.error("Error fetching subscribed channels:", error);
+        throw error;
+    }
 }
 
 export async function listenForNewMessages(channel, setMessages) {

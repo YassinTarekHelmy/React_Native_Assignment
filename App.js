@@ -1,26 +1,32 @@
 
-import React from "react";
+import React, { useContext, useState } from "react";
+import { useEffect } from "react";
 import { LogBox } from "react-native";
-LogBox.ignoreLogs(["Warning: ..."]);
-LogBox.ignoreAllLogs();
+import { AuthContext, AuthProvider } from "./AuthContext";
 
 import { NavigationContainer } from "@react-navigation/native";
-import { AuthProvider, useAuth } from "./AuthContext";
 import GuestStack from "./GuestStack";
 import AppStack from "./AppStack";
 
-const AuthenticatedApp = () => {
-  const { user } = useAuth();
+import { listenForFirstTimeLogin } from "./Analytics";
 
-  return user ? <AppStack /> : <GuestStack />;
-}
+const AuthenticatedApp = () => {
+  const { loggedInUser, setLoggedInUser } = useContext(AuthContext);
+
+  return loggedInUser ? <AppStack /> : <GuestStack />;
+}   
 
 export default function App() {
+  useEffect(() => {
+    LogBox.ignoreLogs(["Warning: ..."]);
+    LogBox.ignoreAllLogs();
+  }, []);
+
   return (
-    <AuthProvider>
-      <NavigationContainer>
-        <AuthenticatedApp />
-      </NavigationContainer>
-    </AuthProvider>
+      <AuthProvider>
+        <NavigationContainer>
+          <AuthenticatedApp />
+        </NavigationContainer>
+      </AuthProvider>
   );
 }

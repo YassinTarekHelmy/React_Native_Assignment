@@ -1,20 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { useAuth } from "../AuthContext";
-import { View, Text, Button, TextInput, StyleSheet, ActivityIndicator } from "react-native";
+import React, { useContext, useEffect, useState } from "react";
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, Button, TextInput, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { signInWithEmailAndPassword, getAuth, GoogleAuthProvider, signInWithCredential } from "firebase/auth";
+import { signInWithEmailAndPassword, getAuth, GoogleAuthProvider, signInWithCredential, getReactNativePersistence } from "firebase/auth";
 import { app } from "../firebaseConfig";
+import { incrementLogingCount } from "../Database"; 
+
+import { AuthContext } from "../AuthContext";
 
 
 export default function LoginScreen({ navigation }) {
+  const { loggedInUser , setLoggedInUser } = useContext(AuthContext);
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { setLoggedInUser } = useAuth();
-
-  const auth = getAuth(app);
+  const auth = getAuth(app, { persistence: getReactNativePersistence(ReactNativeAsyncStorage), });
 
   useEffect(() => {
     GoogleSignin.configure({
@@ -27,13 +30,17 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = () => {
     setError(null); // Reset error
     setIsLoading(true);
-    signInWithEmailAndPassword(email, password)
+    signInWithEmailAndPassword(auth, email, password)
       .then((userCredential) => {
         const user = userCredential.user;
+
         setLoggedInUser(user);
+
+        incrementLogingCount();
       })
       .catch((err) => {
-        setError("Invalid email or password. Please try again.");
+        console.error("Error signing in:", err);
+        Alert.alert("Invalid email or password. Please try again.");
       })
       .finally(() => {
         setIsLoading(false);
@@ -60,22 +67,21 @@ export default function LoginScreen({ navigation }) {
     
         // Create a Google credential with the token
         const googleCredential = await GoogleAuthProvider.credential(idToken);
-
-        console.log("Google Credential: ", googleCredential);
         
-        const s = await signInWithCredential(googleCredential);
+        console.log("Google Credential: ", googleCredential);
 
-        console.log("Sign in with Google: ", s);
-
-        return s; 
+        
+        const s = await signInWithCredential(auth, googleCredential).catch((err) => {
+          console.log("Sign in with Google failed: ", err);
+        });
+        
+        return s;
     }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome Back</Text>
       <Text style={styles.subtitle}>Log in to your account</Text>
-
-      {error && <Text style={styles.error}>{error}</Text>}
 
       <TextInput
         style={styles.input}
@@ -98,12 +104,26 @@ export default function LoginScreen({ navigation }) {
         <ActivityIndicator size="large" color="#007AFF" />
       ) : (
           <View style={styles.buttonContainer}>
-        <Button title="Google" onPress={async () => await onGoogleButtonPress().then(() => { 
-            console.log("User signed in with Google");
-            setLoggedInUser(auth().currentUser);
-            navigation.navigate("HomeScreen");
+        <Button title="Google" onPress={async () => {
+            await onGoogleButtonPress().then((userCredential) => { 
+              try {
+                setLoggedInUser(
+                  userCredential.user
+                );
 
-        })}/>
+                incrementLogingCount();
+
+
+
+                console.log("User signed in: ", );
+            
+              } catch (error) {
+              console.error("Error signing in with Google: ", error);
+            }
+          });
+
+        }
+        }/>
           <Button title="Login" onPress={handleLogin} color="#007AFF" />
           <Button
             title="Sign Up"
@@ -116,6 +136,7 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
+    
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -154,3 +175,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
+
